@@ -34,6 +34,8 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.conf.Configuration;
@@ -80,9 +82,11 @@ import org.apache.hadoop.yarn.server.api.records.NodeHealthStatus;
 import org.apache.hadoop.yarn.server.api.records.NodeStatus;
 import org.apache.hadoop.yarn.server.api.records.OpportunisticContainersStatus;
 import org.apache.hadoop.yarn.server.nodemanager.NodeManager.NMContext;
+
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.Application;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.application.ApplicationState;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.container.Container;
+import org.apache.hadoop.yarn.server.nodemanager.containermanager.launcher.ContainersLauncher;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.monitor.ContainersMonitor;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.resourceplugin.ResourcePlugin;
 import org.apache.hadoop.yarn.server.nodemanager.containermanager.resourceplugin.ResourcePluginManager;
@@ -107,6 +111,8 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
 
   private static final Logger LOG =
        LoggerFactory.getLogger(NodeStatusUpdaterImpl.class);
+
+  private static ContainersLauncher containersLauncher;
 
   private final Object heartbeatMonitor = new Object();
   private final Object shutdownMonitor = new Object();
@@ -377,7 +383,7 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
   }
 
   @VisibleForTesting
-  protected void registerWithRM()
+  public void registerWithRM()
       throws YarnException, IOException {
     RegisterNodeManagerResponse regNMResponse;
     Set<NodeLabel> nodeLabels = nodeLabelsHandler.getNodeLabelsForRegistration();
@@ -391,9 +397,36 @@ public class NodeStatusUpdaterImpl extends AbstractService implements
     synchronized (this.context) {
       List<NMContainerStatus> containerReports = getNMContainerStatuses();
       NodeStatus nodeStatus = getNodeStatus(0);
+      
+      String machineInfo;
+      long physicalMemoryCapacity = 0;
+
+      try {
+        String s;
+        Process p;
+        String[] cmd = {"/bin/sh", "-c", "free | grep Mem: | awk '{print $2}'"};
+        p = Runtime.getRuntime().exec(cmd);
+        BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+        while((s = br.readLine()) != null) {
+          physicalMemoryCapacity = Long.parseLong(s);
+          LOG.info("physical memory capacity (long) : "+physicalMemoryCapacity);
+          break;
+        }
+        p.waitFor();
+        LOG.info("Exit: "+p.exitValue());
+        p.destroy();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+      if (physicalMemoryCapacity > 1000000) { /* 4B */
+        machineInfo = "4B";
+      } else { /* 3B */
+        machineInfo = "3B";
+      }
+
       RegisterNodeManagerRequest request =
           RegisterNodeManagerRequest.newInstance(nodeId, httpPort, totalResource,
-              nodeManagerVersionId, containerReports, getRunningApplications(),
+              nodeManagerVersionId, machineInfo, containerReports, getRunningApplications(),
               nodeLabels, physicalResource, nodeAttributes, nodeStatus);
 
       if (containerReports != null) {
