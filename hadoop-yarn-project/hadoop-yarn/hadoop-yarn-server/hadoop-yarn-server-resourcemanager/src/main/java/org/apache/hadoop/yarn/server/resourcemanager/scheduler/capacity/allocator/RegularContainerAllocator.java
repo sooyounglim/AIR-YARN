@@ -21,6 +21,7 @@ package org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.allocat
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.HashMap;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -32,8 +33,9 @@ import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.api.records.ResourceRequest;
 import org.apache.hadoop.yarn.server.resourcemanager.RMContext;
 import org.apache.hadoop.yarn.server.resourcemanager.nodelabels.RMNodeLabelsManager;
-import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 
+import org.apache.hadoop.yarn.server.resourcemanager.ResourceTrackerService;
+import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainer;
 import org.apache.hadoop.yarn.server.resourcemanager.rmcontainer.RMContainerImpl;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.NodeType;
 import org.apache.hadoop.yarn.server.resourcemanager.scheduler.ResourceLimits;
@@ -413,6 +415,8 @@ public class RegularContainerAllocator extends AbstractContainerAllocator {
     return ContainerAllocation.APP_SKIPPED;
   }
 
+  private final Object object = new Object();
+
   private ContainerAllocation assignContainersOnNode(Resource clusterResource,
       FiCaSchedulerNode node, SchedulerRequestKey schedulerKey,
       RMContainer reservedContainer, SchedulingMode schedulingMode,
@@ -465,33 +469,74 @@ public class RegularContainerAllocator extends AbstractContainerAllocator {
     }
 
     // Off-switch
-    PendingAsk offSwitchAsk =
-        application.getPendingAsk(schedulerKey, ResourceRequest.ANY);
-    if (offSwitchAsk.getCount() > 0) {
-      if (!appInfo.canDelayTo(schedulerKey, ResourceRequest.ANY)) {
-        ActivitiesLogger.APP.recordSkippedAppActivityWithoutAllocation(
-            activitiesManager, node, application, priority,
-            ActivityDiagnosticConstant.SKIP_PRIORITY_BECAUSE_OF_RELAX_LOCALITY);
-        return ContainerAllocation.PRIORITY_SKIPPED;
+    if (node.getRMNode().getMachineInfo().equals("4B")) {
+      if (priority.getPriority() == 0 || priority.getPriority() == 20) {
+        PendingAsk offSwitchAsk =
+            application.getPendingAsk(schedulerKey, ResourceRequest.ANY);
+        if (offSwitchAsk.getCount() > 0) {
+          if (!appInfo.canDelayTo(schedulerKey, ResourceRequest.ANY)) {
+            ActivitiesLogger.APP.recordSkippedAppActivityWithoutAllocation(
+                activitiesManager, node, application, priority,
+                ActivityDiagnosticConstant.SKIP_PRIORITY_BECAUSE_OF_RELAX_LOCALITY);
+            return ContainerAllocation.PRIORITY_SKIPPED;
+          }
+
+          requestLocalityType = requestLocalityType == null ?
+              NodeType.OFF_SWITCH :
+              requestLocalityType;
+
+          allocation =
+              assignOffSwitchContainers(clusterResource, offSwitchAsk,
+                  node, schedulerKey, reservedContainer, schedulingMode,
+                  currentResoureLimits);
+
+          // When a returned allocation is LOCALITY_SKIPPED, since we're in
+          // off-switch request now, we will skip this app w.r.t priorities 
+          if (allocation.getAllocationState() == AllocationState.LOCALITY_SKIPPED) {
+            allocation = ContainerAllocation.APP_SKIPPED;
+          }
+          allocation.requestLocalityType = requestLocalityType;
+
+          return allocation;
+        }
+      }	 
+      // else if (priority.getPriority() == 10 && node.getRMNode().getHostName().equals("slave9")) { 
+      else if (priority.getPriority() == 10) {
+	int assignedReduceContainersOnNode = node.getNumReduceContainers();
+	if (assignedReduceContainersOnNode == 0) {
+	  synchronized (object) {
+	    node.setNumReduceContainers(assignedReduceContainersOnNode + 1);
+       	    PendingAsk offSwitchAsk =
+                application.getPendingAsk(schedulerKey, ResourceRequest.ANY);
+            if (offSwitchAsk.getCount() > 0) {
+              if (!appInfo.canDelayTo(schedulerKey, ResourceRequest.ANY)) {
+                ActivitiesLogger.APP.recordSkippedAppActivityWithoutAllocation(
+                    activitiesManager, node, application, priority,
+                    ActivityDiagnosticConstant.SKIP_PRIORITY_BECAUSE_OF_RELAX_LOCALITY);
+                return ContainerAllocation.PRIORITY_SKIPPED;
+              }
+  
+              requestLocalityType = requestLocalityType == null ?
+                  NodeType.OFF_SWITCH :
+                  requestLocalityType;
+
+              allocation =
+                  assignOffSwitchContainers(clusterResource, offSwitchAsk,
+                      node, schedulerKey, reservedContainer, schedulingMode,
+                      currentResoureLimits);
+
+              // When a returned allocation is LOCALITY_SKIPPED, since we're in
+              // off-switch request now, we will skip this app w.r.t priorities 
+              if (allocation.getAllocationState() == AllocationState.LOCALITY_SKIPPED) {
+                allocation = ContainerAllocation.APP_SKIPPED;
+              }
+              allocation.requestLocalityType = requestLocalityType;
+
+              return allocation;
+	    }
+	  }
+	}
       }
-
-      requestLocalityType = requestLocalityType == null ?
-          NodeType.OFF_SWITCH :
-          requestLocalityType;
-
-      allocation =
-          assignOffSwitchContainers(clusterResource, offSwitchAsk,
-              node, schedulerKey, reservedContainer, schedulingMode,
-              currentResoureLimits);
-
-      // When a returned allocation is LOCALITY_SKIPPED, since we're in
-      // off-switch request now, we will skip this app w.r.t priorities 
-      if (allocation.getAllocationState() == AllocationState.LOCALITY_SKIPPED) {
-        allocation = ContainerAllocation.APP_SKIPPED;
-      }
-      allocation.requestLocalityType = requestLocalityType;
-
-      return allocation;
     }
     ActivitiesLogger.APP.recordSkippedAppActivityWithoutAllocation(
         activitiesManager, node, application, priority,
