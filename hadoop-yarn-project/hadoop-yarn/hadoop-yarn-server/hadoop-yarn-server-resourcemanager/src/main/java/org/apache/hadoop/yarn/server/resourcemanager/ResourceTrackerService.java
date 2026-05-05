@@ -17,11 +17,17 @@
  */
 package org.apache.hadoop.yarn.server.resourcemanager;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,7 +124,6 @@ public class ResourceTrackerService extends AbstractService implements
   private long heartBeatIntervalMax;
   private float heartBeatIntervalSpeedupFactor;
   private float heartBeatIntervalSlowdownFactor;
-
 
   private Server server;
   private InetSocketAddress resourceTrackerAddress;
@@ -408,8 +413,38 @@ public class ResourceTrackerService extends AbstractService implements
     int httpPort = request.getHttpPort();
     Resource capability = request.getResource();
     String nodeManagerVersion = request.getNMVersion();
+    String machineInfo = request.getMachineInfo();
     Resource physicalResource = request.getPhysicalResource();
     NodeStatus nodeStatus = request.getNodeStatus();
+    
+    if (machineInfo.equals("4B")) {
+      capability.setMemory(minAllocMb*2);
+      capability.setVirtualCores(minAllocVcores*2);
+      /*
+      machineInfoIs4BList.add(nodeId);
+      try {
+	// put host and ipAddress into extra file
+	InetAddress address = InetAddress.getByName(host);
+	String ipAddress = address.getHostAddress();
+	File file = new File("/home/ubuntu/hadoop/4BHost.txt");
+	BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));    
+        if (file.isFile() && file.canWrite()) {	
+          bufferedWriter.write(nodeId.toString() + "\t" + ipAddress + "\n");
+	  bufferedWriter.close();
+	}
+      } catch (UnknownHostException e) {
+	e.printStackTrace();
+      } catch (IOException e) {
+
+      }
+      LOG.info("machineInfoIs4BList has " + machineInfoIs4BList.size() + " items");
+      */
+    }
+
+    if (machineInfo.equals("3B")) {
+      capability.setMemory(minAllocMb);
+      capability.setVirtualCores(minAllocVcores);
+    }
 
     RegisterNodeManagerResponse response = recordFactory
         .newRecordInstance(RegisterNodeManagerResponse.class);
@@ -480,7 +515,7 @@ public class ResourceTrackerService extends AbstractService implements
         .getCurrentKey());
 
     RMNode rmNode = new RMNodeImpl(nodeId, rmContext, host, cmPort, httpPort,
-        resolve(host), capability, nodeManagerVersion, physicalResource);
+        resolve(host), capability, nodeManagerVersion, machineInfo, physicalResource);
 
     RMNode oldNode = this.rmContext.getRMNodes().putIfAbsent(nodeId, rmNode);
     if (oldNode == null) {
@@ -609,6 +644,7 @@ public class ResourceTrackerService extends AbstractService implements
   public NodeHeartbeatResponse nodeHeartbeat(NodeHeartbeatRequest request)
       throws YarnException, IOException {
 
+    // LOG.info("[ResourceTrackerService] nodeHeartbeat(nodeHeartbeatRequest) starts!");  
     NodeStatus remoteNodeStatus = request.getNodeStatus();
     /**
      * Here is the node heartbeat sequence...

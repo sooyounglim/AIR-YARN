@@ -132,6 +132,7 @@ public class RMNodeImpl implements RMNode, EventHandler<RMNodeEvent> {
   private String healthReport;
   private long lastHealthReportTime;
   private String nodeManagerVersion;
+  private String machineInfo;
   private Integer decommissioningTimeout;
 
   private long timeStamp;
@@ -409,6 +410,40 @@ public class RMNodeImpl implements RMNode, EventHandler<RMNodeEvent> {
     this.containerAllocationExpirer = context.getContainerAllocationExpirer();
   }
 
+  public RMNodeImpl(NodeId nodeId, RMContext context, String hostName,
+      int cmPort, int httpPort, Node node, Resource capability,
+      String nodeManagerVersion, String machineInfo, Resource physResource) {
+    this.nodeId = nodeId;
+    this.context = context;
+    this.hostName = hostName;
+    this.commandPort = cmPort;
+    this.httpPort = httpPort;
+    this.totalCapability = capability;
+    this.nodeAddress = hostName + ":" + cmPort;
+    this.httpAddress = hostName + ":" + httpPort;
+    this.node = node;
+    this.healthReport = "Healthy";
+    this.lastHealthReportTime = System.currentTimeMillis();
+    this.nodeManagerVersion = nodeManagerVersion;
+    this.machineInfo = machineInfo;
+    this.timeStamp = 0;
+    // If physicalResource is not available, capability is a reasonable guess
+    this.physicalResource = physResource==null ? capability : physResource;
+
+    this.latestNodeHeartBeatResponse.setResponseId(0);
+
+    ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    this.readLock = lock.readLock();
+    this.writeLock = lock.writeLock();
+
+    this.stateMachine = stateMachineFactory.make(this);
+
+    this.nodeUpdateQueue = new ConcurrentLinkedQueue<UpdatedContainerInfo>();
+
+    this.containerAllocationExpirer = context.getContainerAllocationExpirer();
+  }
+
+
   @Override
   public String toString() {
     return this.nodeId.toString();
@@ -509,6 +544,11 @@ public class RMNodeImpl implements RMNode, EventHandler<RMNodeEvent> {
   @Override
   public String getNodeManagerVersion() {
     return nodeManagerVersion;
+  }
+
+  @Override
+  public String getMachineInfo() {
+    return this.machineInfo;
   }
 
   @Override

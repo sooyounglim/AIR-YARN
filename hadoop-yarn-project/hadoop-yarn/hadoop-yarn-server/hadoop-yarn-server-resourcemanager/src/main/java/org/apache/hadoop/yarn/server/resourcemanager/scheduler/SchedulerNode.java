@@ -66,6 +66,7 @@ public abstract class SchedulerNode {
   private Resource totalResource;
   private RMContainer reservedContainer;
   private volatile int numContainers;
+  private volatile int numReduceContainers;
   private volatile ResourceUtilization containersUtilization =
       ResourceUtilization.newInstance(0, 0, 0f);
   private volatile ResourceUtilization nodeUtilization =
@@ -228,6 +229,8 @@ public abstract class SchedulerNode {
     if (container.getExecutionType() == ExecutionType.GUARANTEED) {
       addUnallocatedResource(container.getResource());
       --numContainers;
+      if (container.getPriority().getPriority() == 10)
+        --numReduceContainers;
     }
   }
 
@@ -342,6 +345,14 @@ public abstract class SchedulerNode {
    */
   public int getNumContainers() {
     return numContainers;
+  }
+
+  public int getNumReduceContainers() {
+    return numReduceContainers;
+  }
+
+  public void setNumReduceContainers(int numReduceContainers) {
+    this.numReduceContainers = numReduceContainers;
   }
 
   /**

@@ -98,6 +98,8 @@ public interface RMNode {
    */
   public String getNodeManagerVersion();
 
+  public String getMachineInfo();
+
   /**
    * the total available resource.
    * @return the total available resource.
