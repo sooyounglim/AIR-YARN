@@ -18,6 +18,11 @@
 
 package org.apache.hadoop.mapred;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
@@ -27,6 +32,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
+
+import org.apache.hadoop.yarn.api.records.ContainerId;
+import org.apache.hadoop.yarn.api.ApplicationConstants;
+import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -319,6 +328,55 @@ public class ReduceTask extends Task {
   @SuppressWarnings("unchecked")
   public void run(JobConf job, final TaskUmbilicalProtocol umbilical)
     throws IOException, InterruptedException, ClassNotFoundException {
+
+    String containerIdStr = System.getenv(Environment.CONTAINER_ID.name());
+    LOG.info("containerID : " + containerIdStr);
+
+    String PPID = System.getenv().get("JVM_PID").toString();
+    LOG.info("PPID = " + PPID);
+
+    String PID = null;
+    try {
+      String s;
+      Process p;
+      String[] cmd = {"/bin/sh", "-c", "ps -ef | grep " + PPID + " | awk '$3 == " + PPID + " {print $2}'"};
+      p = Runtime.getRuntime().exec(cmd);
+      BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+      while((s = br.readLine()) != null) {
+        PID = s;
+        LOG.info("PID = " + PID);
+        break;
+      }
+      p.waitFor();
+      LOG.info("Exit: "+p.exitValue());
+      p.destroy();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    try {
+      File file = new File("/home/ubuntu/resources/PID/REDUCE");
+      BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));
+      if (file.isFile() && file.canWrite()) {
+        bufferedWriter.write(PID + "\n");
+        bufferedWriter.close();
+      }
+    } catch (IOException e) {
+
+    }
+
+    long reducePhaseStart = System.currentTimeMillis(); 
+    try {
+      File file = new File("/home/ubuntu/time/" + containerIdStr + ".txt");
+      BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));
+      if (file.isFile() && file.canWrite()) {
+        bufferedWriter.write("REDUCE\t" + Long.toString(reducePhaseStart) + "\n");
+        bufferedWriter.close();
+      }
+    } catch (IOException e) {
+
+    }
+
     job.setBoolean(JobContext.SKIP_RECORDS, isSkipping());
 
     if (isMapOrReduce()) {
@@ -395,6 +453,34 @@ public class ReduceTask extends Task {
     }
 
     shuffleConsumerPlugin.close();
+
+    long reducePhaseDone = System.currentTimeMillis();
+    long reducePhaseElapsedTime = reducePhaseDone - reducePhaseStart;
+    LOG.info("reduce phase : " + reducePhaseElapsedTime);
+
+    try {
+      File file = new File("/home/ubuntu/time/" + containerIdStr + ".txt");
+      BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));
+      if (file.isFile() && file.canWrite()) {
+        bufferedWriter.write("done\t" + Long.toString(reducePhaseDone) + "\n");
+        bufferedWriter.close();
+      }
+    } catch (IOException e) {
+
+    }
+
+    try {
+      File file = new File("/home/ubuntu/time/" + containerIdStr + ".txt");
+      BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));
+      if (file.isFile() && file.canWrite()) {
+        bufferedWriter.write("total\t" + Long.toString(reducePhaseElapsedTime) + "\n");
+        bufferedWriter.close();
+      }
+    } catch (IOException e) {
+
+    }
+
+
     done(umbilical, reporter);
   }
 

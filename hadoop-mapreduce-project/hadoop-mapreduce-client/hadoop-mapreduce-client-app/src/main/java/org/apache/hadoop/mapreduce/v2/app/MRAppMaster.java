@@ -18,6 +18,11 @@
 
 package org.apache.hadoop.mapreduce.v2.app;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -1667,7 +1672,40 @@ public class MRAppMaster extends CompositeService {
             "mr_appmaster_" + applicationAttemptId.toString()).build());
       }
       long appSubmitTime = Long.parseLong(appSubmitTimeStr);
-      
+     
+      // get AM_PID
+      String PPID = System.getenv().get("JVM_PID").toString();
+      LOG.info("PPID = " + PPID);
+
+      String PID = null;
+      try {
+        String s;
+        Process p;
+        String[] cmd = {"/bin/sh", "-c", "ps -ef | grep " + PPID + " | awk '$3 == " + PPID + " {print $2}'"};
+        p = Runtime.getRuntime().exec(cmd);
+        BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+        while((s = br.readLine()) != null) {
+          PID = s;
+          LOG.info("PID = " + PID);
+          break;
+        }
+        p.waitFor();
+        LOG.info("Exit: "+p.exitValue());
+        p.destroy();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+
+      try {
+        File file = new File("/home/ubuntu/resources/PID/AM");
+        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));
+        if (file.isFile() && file.canWrite()) {
+          bufferedWriter.write(PID + "\n");
+          bufferedWriter.close();
+        }
+      } catch (IOException e) {
+
+      }
       
       MRAppMaster appMaster =
           new MRAppMaster(applicationAttemptId, containerId, nodeHostString,

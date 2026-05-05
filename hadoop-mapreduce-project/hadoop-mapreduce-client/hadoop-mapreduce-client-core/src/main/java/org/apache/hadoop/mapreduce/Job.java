@@ -18,6 +18,9 @@
 
 package org.apache.hadoop.mapreduce;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
 import java.security.PrivilegedExceptionAction;
@@ -1579,6 +1582,20 @@ public class Job extends JobContextImpl implements JobContext, AutoCloseable {
   public boolean waitForCompletion(boolean verbose
                                    ) throws IOException, InterruptedException,
                                             ClassNotFoundException {
+    long jobStart = System.currentTimeMillis();
+    LOG.info("Job Starts!" + jobStart);
+    
+    try {
+      File file = new File("/home/ubuntu/time/job-start.txt");
+      BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));
+      if (file.isFile() && file.canWrite()) {
+        bufferedWriter.write(Long.toString(jobStart) + "\n");
+        bufferedWriter.close();
+      }
+    } catch (IOException e) {
+
+    }
+
     if (state == JobState.DEFINE) {
       submit();
     }
@@ -1595,6 +1612,32 @@ public class Job extends JobContextImpl implements JobContext, AutoCloseable {
         }
       }
     }
+    long jobDone = System.currentTimeMillis();
+    long jobElapsedTime = jobDone - jobStart;
+    LOG.info("*** job Ends in " + jobElapsedTime + " ***");
+    
+    try {
+      File file = new File("/home/ubuntu/time/job-done.txt");
+      BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));
+      if (file.isFile() && file.canWrite()) {
+        bufferedWriter.write(Long.toString(jobDone) + "\n");
+        bufferedWriter.close();
+      }
+    } catch (IOException e) {
+
+    }
+
+    try {
+      File file = new File("/home/ubuntu/time/job-total.txt");
+      BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));
+      if (file.isFile() && file.canWrite()) {
+        bufferedWriter.write(Long.toString(jobElapsedTime) + "\n");
+        bufferedWriter.close();
+      }
+    } catch (IOException e) {
+
+    }
+
     return isSuccessful();
   }
   

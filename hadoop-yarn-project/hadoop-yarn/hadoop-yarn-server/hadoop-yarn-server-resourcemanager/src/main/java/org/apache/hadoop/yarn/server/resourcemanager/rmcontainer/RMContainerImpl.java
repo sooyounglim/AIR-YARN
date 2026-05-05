@@ -18,6 +18,11 @@
 
 package org.apache.hadoop.yarn.server.resourcemanager.rmcontainer;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
@@ -257,6 +262,7 @@ public class RMContainerImpl implements RMContainer {
     if (this.container != null) {
       this.allocationTags = this.container.getAllocationTags();
     }
+
   }
 
   @Override
@@ -702,6 +708,21 @@ public class RMContainerImpl implements RMContainer {
       RMContainerFinishedEvent finishedEvent = (RMContainerFinishedEvent) event;
 
       container.finishTime = System.currentTimeMillis();
+      
+      try {
+        File file = new File("/home/ubuntu/time/" + container.getContainerId().toString() + ".txt");
+        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file, true));
+        if (file.isFile() && file.canWrite()) {
+	  bufferedWriter.write(Long.toString(container.creationTime) + "\n");	  
+          bufferedWriter.write(Long.toString(container.finishTime) + "\n");
+          long total = container.finishTime - container.creationTime;
+	  bufferedWriter.write(Long.toString(total) + "\n");
+	  bufferedWriter.close();
+	}
+      } catch (IOException e) {
+
+      }
+      
       container.finishedStatus = finishedEvent.getRemoteContainerStatus();
       // Inform AppAttempt
       // container.getContainer() can return null when a RMContainer is a

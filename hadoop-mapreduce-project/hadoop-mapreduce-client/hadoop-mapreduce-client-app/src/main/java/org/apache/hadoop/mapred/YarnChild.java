@@ -71,6 +71,9 @@ class YarnChild {
   static volatile TaskAttemptID taskid = null;
 
   public static void main(String[] args) throws Throwable {
+    long yarnChildStart = System.currentTimeMillis();
+    LOG.info("YarnChild Starts : " + yarnChildStart);
+	  
     Thread.setDefaultUncaughtExceptionHandler(new YarnUncaughtExceptionHandler());
     LOG.debug("Child starting");
 
@@ -119,7 +122,7 @@ class YarnChild {
 
     // report non-pid to application master
     JvmContext context = new JvmContext(jvmId, "-1000");
-    LOG.debug("PID: " + System.getenv().get("JVM_PID"));
+    LOG.info("PID: " + System.getenv().get("JVM_PID"));
     Task task = null;
     UserGroupInformation childUGI = null;
     ScheduledExecutorService logSyncer = null;
@@ -172,7 +175,12 @@ class YarnChild {
           setEncryptedSpillKeyIfRequired(taskFinal);
           FileSystem.get(job).setWorkingDirectory(job.getWorkingDirectory());
           taskFinal.run(job, umbilical); // run the task
-          return null;
+          
+	  long yarnChildEnd = System.currentTimeMillis();
+          long yarnChildElapsedTime = yarnChildEnd - yarnChildStart;
+          LOG.info("YarnChild Ends with : " + yarnChildElapsedTime);
+
+	  return null;
         }
       });
     } catch (FSError e) {
