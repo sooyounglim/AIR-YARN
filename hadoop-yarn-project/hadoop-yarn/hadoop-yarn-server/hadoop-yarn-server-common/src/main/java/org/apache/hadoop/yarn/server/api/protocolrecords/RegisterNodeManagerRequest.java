@@ -77,11 +77,34 @@ public abstract class RegisterNodeManagerRequest {
     request.setNodeStatus(nodeStatus);
     return request;
   }
+
+  public static RegisterNodeManagerRequest newInstance(NodeId nodeId,
+      int httpPort, Resource resource, String nodeManagerVersionId,
+      String machineInfo, List<NMContainerStatus> containerStatuses,
+      List<ApplicationId> runningApplications, Set<NodeLabel> nodeLabels,
+      Resource physicalResource, Set<NodeAttribute> nodeAttributes,
+      NodeStatus nodeStatus) {
+    RegisterNodeManagerRequest request =
+        Records.newRecord(RegisterNodeManagerRequest.class);
+    request.setHttpPort(httpPort);
+    request.setResource(resource);
+    request.setNodeId(nodeId);
+    request.setNMVersion(nodeManagerVersionId);
+    request.setMachineInfo(machineInfo);
+    request.setContainerStatuses(containerStatuses);
+    request.setRunningApplications(runningApplications);
+    request.setNodeLabels(nodeLabels);
+    request.setPhysicalResource(physicalResource);
+    request.setNodeAttributes(nodeAttributes);
+    request.setNodeStatus(nodeStatus);
+    return request;
+  }
   
   public abstract NodeId getNodeId();
   public abstract int getHttpPort();
   public abstract Resource getResource();
   public abstract String getNMVersion();
+  public abstract String getMachineInfo();
   public abstract List<NMContainerStatus> getNMContainerStatuses();
   public abstract Set<NodeLabel> getNodeLabels();
   public abstract void setNodeLabels(Set<NodeLabel> nodeLabels);
@@ -104,15 +127,14 @@ public abstract class RegisterNodeManagerRequest {
   public abstract void setHttpPort(int port);
   public abstract void setResource(Resource resource);
   public abstract void setNMVersion(String version);
-  public abstract void setContainerStatuses(
-      List<NMContainerStatus> containerStatuses);
+  public abstract void setMachineInfo(String machineInfo);
+  public abstract void setContainerStatuses(List<NMContainerStatus> containerStatuses);
   
   /**
    * Setter for {@link RegisterNodeManagerRequest#getRunningApplications()}
    * @param runningApplications running application in this node
    */
-  public abstract void setRunningApplications(
-      List<ApplicationId> runningApplications);
+  public abstract void setRunningApplications(List<ApplicationId> runningApplications);
 
   /**
    * Get the physical resources in the node to properly estimate resource

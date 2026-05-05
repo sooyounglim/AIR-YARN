@@ -420,6 +420,21 @@ public class RegisterNodeManagerRequestPBImpl extends RegisterNodeManagerRequest
   }
   
   @Override
+  public synchronized String getMachineInfo() {
+    RegisterNodeManagerRequestProtoOrBuilder p = viaProto ? proto : builder;
+    if (!p.hasMachineInfo()) {
+      return "";
+    }
+    return (p.getMachineInfo());
+  }
+
+  @Override
+  public synchronized void setMachineInfo(String machineInfo) {
+    maybeInitBuilder();
+    builder.setMachineInfo(machineInfo);
+  }
+
+  @Override
   public synchronized Set<NodeLabel> getNodeLabels() {
     initNodeLabels();
     return this.labels;
